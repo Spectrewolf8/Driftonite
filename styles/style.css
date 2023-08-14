@@ -1,0 +1,23 @@
+.body-0 {
+  margin: 0px;
+  background-color: #141414;
+  font-family: Arial, sans-serif;
+  padding: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+}
+.info {
+  position: absolute;
+  top: 10px;
+  width: 100%;
+  text-align: center;
+  z-index: 100;
+  display: block;
+
+  color: rgb(27, 27, 27);
+  font: bold;
+  font-family: Impact, Haettenschweiler, "Arial Narrow Regular", sans-serif;
+  font-size: 20px;
+}
