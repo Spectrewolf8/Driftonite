@@ -7,33 +7,36 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 
 console.log("Imports successful!");
 
-const intersectedObjects = [];
+//main variables
+const scene = new THREE.Scene();
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+const stats = new Stats();
+const camera = new THREE.PerspectiveCamera(
+  75,
+  window.innerWidth / window.innerHeight,
+  0.1,
+  1000,
+);
+const controls = new OrbitControls(camera, renderer.domElement);
+
+//other variables
 let concerned_element;
 
 function init() {
   //setting up scene
-  const scene = new THREE.Scene();
   scene.background = new THREE.Color("#1f1f1f");
 
   //setting up renderer
-  const renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setSize(window.innerWidth, window.innerHeight);
   document.body.appendChild(renderer.domElement);
 
   //setting up stats monitor
-  const stats = new Stats();
   document.body.appendChild(stats.dom);
 
   //setting up camera and camera's orbital controls
-  const camera = new THREE.PerspectiveCamera(
-    75,
-    window.innerWidth / window.innerHeight,
-    0.1,
-    1000,
-  );
+
   camera.position.set(-2.75, 5, 50);
 
-  const controls = new OrbitControls(camera, renderer.domElement);
   controls.target.set(0, 0.5, 0);
   controls.enableDamping = true;
   controls.enableZoom = true;
@@ -52,33 +55,34 @@ function init() {
   scene.add(gridHelper);
 
   //setting lights
-  const light0 = new THREE.PointLight("#ffffff", 600, 100);
+  const light0 = new THREE.AmbientLight("#ffffff", 0.3);
   light0.position.set(-10, +10, +20);
   light0.lookAt(0, 0, 0);
   light0.rotateX = 45;
   light0.rotateY = -15;
   scene.add(light0);
 
-  const light1 = new THREE.PointLight("#ffffff", 300, 100);
-  light1.position.set(+30, -10, +20);
+  const light1 = new THREE.DirectionalLight("#ffffff", 1);
+  light1.position.set(+30, +30, -70);
   light1.lookAt(0, 0, 0);
-  light1.rotateX = -45;
-  light1.rotateY = 10;
+  light1.rotateX = -20;
+  light1.rotateY = -30;
+  light1.castShadow = true;
   scene.add(light1);
 
-  const light2 = new THREE.PointLight("#ffffff", 300, 100);
-  light2.position.set(-30, -10, -20);
-  light2.lookAt(0, 0, 0);
-  light2.rotateX = 180;
-  light2.rotateY = 10;
-  scene.add(light2);
+  //   const light2 = new THREE.PointLight("#ffffff", 300, 100);
+  //   light2.position.set(-30, -10, -20);
+  //   light2.lookAt(0, 0, 0);
+  //   light2.rotateX = 180;
+  //   light2.rotateY = 10;
+  //   scene.add(light2);
 
-  const light3 = new THREE.PointLight("#ffffff", 300, 100);
-  light3.position.set(+30, -10, -20);
-  light3.lookAt(0, 0, 0);
-  light3.rotateX = 180;
-  light3.rotateY = 10;
-  scene.add(light3);
+  //   const light3 = new THREE.PointLight("#ffffff", 300, 100);
+  //   light3.position.set(+30, -10, -20);
+  //   light3.lookAt(0, 0, 0);
+  //   light3.rotateX = 180;
+  //   light3.rotateY = 10;
+  //   scene.add(light3);
 
   //loading 3D model
   const loader = new GLTFLoader();
@@ -102,37 +106,36 @@ function init() {
       console.error(error);
     },
   );
+}
+// Define the start and end colors for the gradient
+let hue = 0;
+const maxHue = 360;
+const hueStep = 0.3;
 
-  // Define the start and end colors for the gradient
-  let hue = 0;
-  const maxHue = 360; // Maximum hue value
-  const hueStep = 0.3; // Step size for changing hue
+function animate() {
+  requestAnimationFrame(animate);
+  controls.update();
+  stats.update();
+  renderer.render(scene, camera);
 
-  function animate() {
-    requestAnimationFrame(animate);
-    controls.update();
-    stats.update();
-    renderer.render(scene, camera);
+  if (concerned_element) {
+    // Calculate the current color based on a smooth transition
+    const hueNormalized = hue / maxHue;
+    const color = new THREE.Color().setHSL(hueNormalized, 1, 0.5);
 
-    if (concerned_element) {
-      // Calculate the current color based on a smooth transition
-      const hueNormalized = hue / maxHue;
-      const color = new THREE.Color().setHSL(hueNormalized, 1, 0.5);
+    concerned_element.getObjectByName("Circle_2").material.color.set(color);
 
-      concerned_element.getObjectByName("Circle_2").material.color.set(color);
-
-      hue = (hue + hueStep) % maxHue;
-    }
+    hue = (hue + hueStep) % maxHue;
   }
+}
 
-  if (WebGL.isWebGLAvailable()) {
-    requestAnimationFrame(animate);
-    animate();
-    console.log("WebGL support detected");
-  } else {
-    const warning = WebGL.getWebGLErrorMessage();
-    document.getElementById("container").appendChild(warning);
-  }
+if (WebGL.isWebGLAvailable()) {
+  requestAnimationFrame(animate);
+  animate();
+  console.log("WebGL support detected");
+} else {
+  const warning = WebGL.getWebGLErrorMessage();
+  document.getElementById("container").appendChild(warning);
 }
 
 init();
