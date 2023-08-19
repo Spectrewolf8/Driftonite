@@ -5,6 +5,7 @@ import Stats from "three/addons/libs/stats.module.js";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import * as CANNON from "cannon-es";
+import CannonDebugger from "cannon-es-debugger";
 
 console.log("Imports successful!");
 
@@ -19,11 +20,14 @@ const camera = new THREE.PerspectiveCamera(
   1000,
 );
 const controls = new OrbitControls(camera, renderer.domElement);
+
+//physics world
 const world = new CANNON.World({
   gravity: new CANNON.Vec3(0, -9.81, 0),
 });
+world.defaultContactMaterial.friction = 0.001;
 const timeStep = 1 / 60;
-
+const cannonDebugger = new CannonDebugger(scene, world);
 //other variables
 let carObject, carPhysicsBody;
 
@@ -50,7 +54,7 @@ function init() {
   //   controls.enableRotate = false;
 
   controls.minDistance = 2.5;
-  controls.maxDistance = 100;
+  controls.maxDistance = 150;
   controls.update();
 
   // //   setting gridhelper
@@ -78,35 +82,36 @@ function init() {
   scene.add(light1);
 
   //loading 3D model
-  const loader = new GLTFLoader();
-  loader.load(
-    "../models/car_lowpoly_mod_2.glb",
-    function (gltf) {
-      const car = gltf.scene;
-      car.scale.set(5, 5, 5);
-      car.position.y = 0;
-      car.position.x = 0;
-      // car.add(camera);
-      scene.add(car);
-      console.log(car);
-      //   car.getObjectByName("Circle_2").material.color.set("Magenta");
-      car.getObjectByName("Circle_2").material.metalness = 0.8;
-      car.getObjectByName("Circle_2").material.roughness = 0.3;
-      car.add(new THREE.AxesHelper(5));
+  // const loader = new GLTFLoader();
+  // loader.load(
+  //   "../models/car_lowpoly_mod_2.glb",
+  //   function (gltf) {
+  //     const car = gltf.scene;
+  //     car.scale.set(5, 5, 5);
+  //     car.position.y = 0;
+  //     car.position.x = 0;
+  //     // car.add(camera);
+  //     scene.add(car);
+  //     console.log(car);
+  //     //   car.getObjectByName("Circle_2").material.color.set("Magenta");
+  //     car.getObjectByName("Circle_2").material.metalness = 0.8;
+  //     car.getObjectByName("Circle_2").material.roughness = 0.3;
+  //     car.add(new THREE.AxesHelper(5));
 
-      carObject = car;
-      console.log(carObject);
-    },
-    undefined,
-    function (error) {
-      console.error(error);
-    },
-  );
+  //     carObject = car;
+  //     console.log(carObject);
+  //   },
+  //   undefined,
+  //   function (error) {
+  //     console.error(error);
+  //   },
+  // );
 }
 
 //setting worlds, Objects and physics
 //ground plane body and mesh
-const planeGeometry = new THREE.PlaneGeometry(25, 25);
+const planePhysicsMaterial = new CANNON.Material();
+const planeGeometry = new THREE.BoxGeometry(200, 200, 0.02);
 const planeMesh = new THREE.Mesh(
   planeGeometry,
   new THREE.MeshPhongMaterial({ side: THREE.DoubleSide }),
@@ -116,34 +121,49 @@ planeMesh.position.set(0, 0, 0);
 planeMesh.receiveShadow = true;
 scene.add(planeMesh);
 
-const planeBody = new CANNON.Body({ mass: 0, shape: new CANNON.Plane() });
+const planeBody = new CANNON.Body({
+  mass: 0,
+  shape: new CANNON.Box(new CANNON.Vec3(100, 100, 0.01)),
+  material: planePhysicsMaterial,
+});
 planeBody.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -Math.PI / 2);
 world.addBody(planeBody);
 planeMesh.position.copy(planeBody.position);
 planeMesh.quaternion.copy(planeBody.quaternion);
 
-//car body, mesh is the model
-// const cubeGemotery = new THREE.BoxGeometry(3, 2, 1);
-// const cubeMesh = new THREE.Mesh(
-//   cubeGemotery,
-//   new THREE.MeshBasicMaterial({
-//     side: THREE.DoubleSide,
-//     wireframe: true,
-//   }),
-// );
-// cubeMesh.add(new THREE.AxesHelper(5));
-// // scene.add(cubeMesh);
-// // carObject = cubeMesh;
+// car body, mesh is the model
+const cubeGemotery = new THREE.BoxGeometry(3, 2, 2);
+const cubeMesh = new THREE.Mesh(
+  cubeGemotery,
+  new THREE.MeshBasicMaterial({
+    side: THREE.DoubleSide,
+    wireframe: true,
+  }),
+);
+cubeMesh.add(new THREE.AxesHelper(5));
+scene.add(cubeMesh);
+carObject = cubeMesh;
+const cubePhysicsMaterial = new CANNON.Material();
 const cubeBody = new CANNON.Body({
   mass: 1,
-  shape: new CANNON.Box(new CANNON.Vec3(1.5, 1, 0.5)),
+  shape: new CANNON.Box(new CANNON.Vec3(1.5, 1, 1)),
+  material: cubePhysicsMaterial,
   type: CANNON.Body.DYNAMIC,
-  position: new CANNON.Vec3(0, 20, 0),
+  position: new CANNON.Vec3(0, 10, 0),
+  restitution: 0,
 });
-cubeBody.position.y = 0;
+// cubeBody.position.y = 0;
 cubeBody.angularFactor = new CANNON.Vec3(0, 1, 0);
+cubeBody.linearDamping = 0.15;
 world.addBody(cubeBody);
 carPhysicsBody = cubeBody;
+//contact material
+const car_ground_contactMaterial = new CANNON.ContactMaterial(
+  planePhysicsMaterial,
+  cubePhysicsMaterial,
+  { friction: 0.3 },
+);
+world.addContactMaterial(car_ground_contactMaterial);
 
 //event handling
 // Toggle pause/play state on "p" key press
@@ -173,10 +193,10 @@ document.addEventListener("keyup", (event) => {
 let lateralRotation = 0;
 
 // Define the maximum rotation angle
-const maxLateralRotation = Math.PI / 4; // 30 degrees in radians
+const maxLateralRotation = 2 * Math.PI; // 30 degrees in radians
 
 // Define the rotation speed
-const rotationSpeed = 0.15;
+const rotationSpeed = 0.02;
 
 // Define the start and end colors for the gradient
 let hue = 0;
@@ -190,6 +210,7 @@ function animate() {
     stats.update();
     renderer.render(scene, camera);
     world.step(timeStep);
+    cannonDebugger.update();
     //handling default positions
 
     // //handling key events and physics
@@ -212,10 +233,11 @@ function animate() {
     if (keyState["w"]) {
       // carPhysicsBody.velocity.z += 0.5;
       carPhysicsBody.applyLocalForce(
-        new CANNON.Vec3(0, 0, 10),
+        new CANNON.Vec3(0, 0, 30),
         new CANNON.Vec3(0, 0, 0),
       );
-      console.log("Velocity: " + carPhysicsBody.velocity);
+      // carPhysicsBody.velocity.z += 0.5;
+      // console.log("Velocity: " + carPhysicsBody.velocity);
 
       console.log(
         carPhysicsBody.force.x,
@@ -235,39 +257,42 @@ function animate() {
       );
     }
     if (keyState["a"]) {
-      if (lateralRotation < maxLateralRotation) {
-        lateralRotation += rotationSpeed;
-      }
-      carPhysicsBody.applyLocalForce(
-        new CANNON.Vec3(0, 0, 7),
-        new CANNON.Vec3(0, 0, 0),
-      );
+      // if (lateralRotation < maxLateralRotation) {
+
+      // }
+      lateralRotation += rotationSpeed;
+      // carPhysicsBody.applyLocalForce(
+      //   new CANNON.Vec3(0, 0, 7),
+      //   new CANNON.Vec3(0, 0, 0),
+      // );
       console.log(
         carPhysicsBody.force.x,
         carPhysicsBody.force.y,
         carPhysicsBody.force.z,
       );
     } else if (keyState["d"]) {
-      if (lateralRotation > -maxLateralRotation) {
-        lateralRotation -= rotationSpeed;
-      }
-      carPhysicsBody.applyLocalForce(
-        new CANNON.Vec3(0, 0, 7),
-        new CANNON.Vec3(0, 0, 0),
-      );
+      // if (lateralRotation > -maxLateralRotation) {
+
+      // }
+      lateralRotation -= rotationSpeed;
+      // carPhysicsBody.applyLocalForce(
+      //   new CANNON.Vec3(0, 0, 7),
+      //   new CANNON.Vec3(0, 0, 0),
+      // );
       console.log(
         carPhysicsBody.force.x,
         carPhysicsBody.force.y,
         carPhysicsBody.force.z,
       );
-    } else {
-      // If neither A nor D is pressed, gradually return to normal rotation
-      if (lateralRotation > 0) {
-        lateralRotation -= rotationSpeed;
-      } else if (lateralRotation < 0) {
-        lateralRotation += rotationSpeed;
-      }
     }
+    // else {
+    //   // If neither A nor D is pressed, gradually return to normal rotation
+    //   if (lateralRotation > 0) {
+    //     lateralRotation -= rotationSpeed;
+    //   } else if (lateralRotation < 0) {
+    //     lateralRotation += rotationSpeed;
+    //   }
+    // }
 
     // carPhysicsBody.quaternion.setFromEuler(0, Math.PI + lateralRotation, 0);
 
@@ -276,14 +301,19 @@ function animate() {
     //actions to do when models loads
     if (carObject) {
       // Calculate and set the current color based on a smooth transition
-      const hueNormalized = hue / maxHue;
-      const color = new THREE.Color().setHSL(hueNormalized, 1, 0.5);
-      carObject.getObjectByName("Circle_2").material.color.set(color);
-      hue = (hue + hueStep) % maxHue;
+      // const hueNormalized = hue / maxHue;
+      // const color = new THREE.Color().setHSL(hueNormalized, 1, 0.5);
+      // carObject.getObjectByName("Circle_2").material.color.set(color);
+      // hue = (hue + hueStep) % maxHue;
 
+      // carPhysicsBody.applyLocalForce(
+      //   new CANNON.Vec3(0, 0, 10),
+      //   new CANNON.Vec3(0, 0, 0),
+      // );
       //calculate positions
       carObject.position.copy(carPhysicsBody.position);
       carObject.quaternion.copy(carPhysicsBody.quaternion);
+      // carObject.scale.copy(carPhysicsBody.scale);
       if (camera) {
         // // //camera movements
         // camera.position.x = carObject.position.x + 2;

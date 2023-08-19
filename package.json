@@ -9,6 +9,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "cannon-es-debugger": "^1.0.0",
     "three": "^0.155.0"
   },
   "devDependencies": {
