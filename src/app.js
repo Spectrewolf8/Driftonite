@@ -1,172 +1,16 @@
 console.log("main.js loaded successfully!");
-import * as THREE from "three";
 import WebGL from "three/addons/capabilities/WebGL.js";
-import Stats from "three/addons/libs/stats.module.js";
-import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
-import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-import * as CANNON from "cannon-es";
 import CannonDebugger from "cannon-es-debugger";
+import { CarVisualWorld } from "./CarVisual";
+import { CarPhysicsWorld } from "./CarPhysics";
+import * as CANNON from "cannon-es";
 
 console.log("Imports successful!");
+let carVisualWorld = new CarVisualWorld();
+let carPhysicsWorld = new CarPhysicsWorld();
 
-//main variables
-const scene = new THREE.Scene();
-const renderer = new THREE.WebGLRenderer({ antialias: true });
-const stats = new Stats();
-const camera = new THREE.PerspectiveCamera(
-  75,
-  window.innerWidth / window.innerHeight,
-  0.1,
-  1000,
-);
-const controls = new OrbitControls(camera, renderer.domElement);
+const cannonDebugger = new CannonDebugger(carVisualWorld.scene, carPhysicsWorld.world);
 
-//physics world
-const world = new CANNON.World({
-  gravity: new CANNON.Vec3(0, -9.81, 0),
-});
-world.defaultContactMaterial.friction = 0.001;
-const timeStep = 1 / 60;
-const cannonDebugger = new CannonDebugger(scene, world);
-//other variables
-let carObject, carPhysicsBody;
-
-function init() {
-  //setting up scene
-  scene.background = new THREE.Color("#1f1f1f");
-  scene.add(new THREE.AxesHelper(100));
-
-  //setting up renderer
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  document.body.appendChild(renderer.domElement);
-
-  //setting up stats monitor
-  document.body.appendChild(stats.dom);
-
-  //setting up camera and camera's orbital controls
-
-  camera.position.set(-2.75, 5, 10);
-
-  controls.target.set(0, 0.5, 0);
-  controls.enableDamping = true;
-  controls.enableZoom = true;
-  controls.enablePan = true;
-  //   controls.enableRotate = false;
-
-  controls.minDistance = 2.5;
-  controls.maxDistance = 150;
-  controls.update();
-
-  // //   setting gridhelper
-  // const size = 100;
-  // const divisions = 50;
-  // const gridHelper = new THREE.GridHelper(size, divisions);
-  // gridHelper.position.y = 0;
-  // scene.add(gridHelper);
-
-  //setting lights
-  const light0 = new THREE.AmbientLight("#ffffff", 0.3);
-  light0.position.set(-10, +10, +20);
-  light0.lookAt(0, 0, 0);
-  light0.rotateX = 45;
-  light0.rotateY = -15;
-  scene.add(light0);
-
-  const light1 = new THREE.DirectionalLight("#ffffff", 1);
-  light1.position.set(+30, +30, -70);
-  light1.lookAt(0, 0, 0);
-  light1.rotateX = -20;
-  light1.rotateY = -30;
-  light1.castShadow = true;
-  // scene.add(new THREE.PointLightHelper(light1,,"" ));
-  scene.add(light1);
-
-  //loading 3D model
-  // const loader = new GLTFLoader();
-  // loader.load(
-  //   "../models/car_lowpoly_mod_2.glb",
-  //   function (gltf) {
-  //     const car = gltf.scene;
-  //     car.scale.set(5, 5, 5);
-  //     car.position.y = 0;
-  //     car.position.x = 0;
-  //     // car.add(camera);
-  //     scene.add(car);
-  //     console.log(car);
-  //     //   car.getObjectByName("Circle_2").material.color.set("Magenta");
-  //     car.getObjectByName("Circle_2").material.metalness = 0.8;
-  //     car.getObjectByName("Circle_2").material.roughness = 0.3;
-  //     car.add(new THREE.AxesHelper(5));
-
-  //     carObject = car;
-  //     console.log(carObject);
-  //   },
-  //   undefined,
-  //   function (error) {
-  //     console.error(error);
-  //   },
-  // );
-}
-
-//setting worlds, Objects and physics
-//ground plane body and mesh
-const planePhysicsMaterial = new CANNON.Material();
-const planeGeometry = new THREE.BoxGeometry(200, 200, 0.02);
-const planeMesh = new THREE.Mesh(
-  planeGeometry,
-  new THREE.MeshPhongMaterial({ side: THREE.DoubleSide }),
-);
-planeMesh.rotateX(-Math.PI / 2);
-planeMesh.position.set(0, 0, 0);
-planeMesh.receiveShadow = true;
-scene.add(planeMesh);
-
-const planeBody = new CANNON.Body({
-  mass: 0,
-  shape: new CANNON.Box(new CANNON.Vec3(100, 100, 0.01)),
-  material: planePhysicsMaterial,
-});
-planeBody.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -Math.PI / 2);
-world.addBody(planeBody);
-planeMesh.position.copy(planeBody.position);
-planeMesh.quaternion.copy(planeBody.quaternion);
-
-// car body, mesh is the model
-const cubeGemotery = new THREE.BoxGeometry(3, 2, 2);
-const cubeMesh = new THREE.Mesh(
-  cubeGemotery,
-  new THREE.MeshBasicMaterial({
-    side: THREE.DoubleSide,
-    wireframe: true,
-  }),
-);
-cubeMesh.add(new THREE.AxesHelper(5));
-scene.add(cubeMesh);
-carObject = cubeMesh;
-const cubePhysicsMaterial = new CANNON.Material();
-const cubeBody = new CANNON.Body({
-  mass: 1,
-  shape: new CANNON.Box(new CANNON.Vec3(1.5, 1, 1)),
-  material: cubePhysicsMaterial,
-  type: CANNON.Body.DYNAMIC,
-  position: new CANNON.Vec3(0, 10, 0),
-  restitution: 0,
-});
-// cubeBody.position.y = 0;
-cubeBody.angularFactor = new CANNON.Vec3(0, 1, 0);
-cubeBody.linearDamping = 0.15;
-world.addBody(cubeBody);
-carPhysicsBody = cubeBody;
-//contact material
-const car_ground_contactMaterial = new CANNON.ContactMaterial(
-  planePhysicsMaterial,
-  cubePhysicsMaterial,
-  { friction: 0.3 },
-);
-world.addContactMaterial(car_ground_contactMaterial);
-
-//event handling
-// Toggle pause/play state on "p" key press
 let isPaused = false;
 document.addEventListener("keydown", (event) => {
   if (event.key === "p") {
@@ -188,118 +32,100 @@ document.addEventListener("keyup", (event) => {
   keyState[event.key] = false;
 });
 
-//Varibles handling rotations
-// Define a variable to keep track of the current rotation angle
+//physics constaints
+const timeStep = 1 / 60;
+//contact materia
+const rotationSpeed = 0.02;
+//define lateral rotation
 let lateralRotation = 0;
 
 // Define the maximum rotation angle
 const maxLateralRotation = 2 * Math.PI; // 30 degrees in radians
 
-// Define the rotation speed
-const rotationSpeed = 0.02;
-
-// Define the start and end colors for the gradient
-let hue = 0;
-const maxHue = 360;
-const hueStep = 0.3;
-
+carVisualWorld.visualWorldObjects.planeMesh.position.copy(
+  carPhysicsWorld.physicsWorldObjects.planeBody.position,
+);
+carVisualWorld.visualWorldObjects.planeMesh.quaternion.copy(
+  carPhysicsWorld.physicsWorldObjects.planeBody.quaternion,
+);
 function animate() {
   if (!isPaused) {
     requestAnimationFrame(animate);
-    controls.update();
-    stats.update();
-    renderer.render(scene, camera);
-    world.step(timeStep);
+    carVisualWorld.controls.update();
+    carVisualWorld.stats.update();
+    carVisualWorld.renderer.render(carVisualWorld.scene, carVisualWorld.camera);
+    carPhysicsWorld.world.step(timeStep);
     cannonDebugger.update();
-    //handling default positions
 
-    // //handling key events and physics
-    // if (keyState["w"]) {
-    //   carPhysicsBody.velocity.z += 0.5;
-    // }
-    // if (keyState["a"]) {
-    //   carPhysicsBody.velocity.x += 0.5;
-    //   carPhysicsBody.quaternion.setFromEuler(0, -Math.PI / 2, 0);
-    // }
-    // if (keyState["s"]) {
-    //   carPhysicsBody.velocity.z -= 0.5;
-    // }
-    // if (keyState["d"]) {
-    //   carPhysicsBody.velocity.x -= 0.5;
-    //   carPhysicsBody.quaternion.setFromEuler(0, Math.PI / 2, 0);
-    // }
+    carPhysicsWorld.physicsWorldObjects.carPhysicsBody.quaternion.setFromEuler(
+      0,
+      Math.PI + lateralRotation,
+      0,
+    );
 
-    //handling key events and physics
-    if (keyState["w"]) {
-      // carPhysicsBody.velocity.z += 0.5;
-      carPhysicsBody.applyLocalForce(
-        new CANNON.Vec3(0, 0, 30),
-        new CANNON.Vec3(0, 0, 0),
-      );
-      // carPhysicsBody.velocity.z += 0.5;
-      // console.log("Velocity: " + carPhysicsBody.velocity);
-
-      console.log(
-        carPhysicsBody.force.x,
-        carPhysicsBody.force.y,
-        carPhysicsBody.force.z,
-      );
-    }
-    if (keyState["s"]) {
-      carPhysicsBody.applyLocalForce(
-        new CANNON.Vec3(0, 0, -10),
-        new CANNON.Vec3(0, 0, 0),
-      );
-      console.log(
-        carPhysicsBody.force.x,
-        carPhysicsBody.force.y,
-        carPhysicsBody.force.z,
-      );
-    }
-    if (keyState["a"]) {
-      // if (lateralRotation < maxLateralRotation) {
-
-      // }
-      lateralRotation += rotationSpeed;
-      // carPhysicsBody.applyLocalForce(
-      //   new CANNON.Vec3(0, 0, 7),
-      //   new CANNON.Vec3(0, 0, 0),
-      // );
-      console.log(
-        carPhysicsBody.force.x,
-        carPhysicsBody.force.y,
-        carPhysicsBody.force.z,
-      );
-    } else if (keyState["d"]) {
-      // if (lateralRotation > -maxLateralRotation) {
-
-      // }
-      lateralRotation -= rotationSpeed;
-      // carPhysicsBody.applyLocalForce(
-      //   new CANNON.Vec3(0, 0, 7),
-      //   new CANNON.Vec3(0, 0, 0),
-      // );
-      console.log(
-        carPhysicsBody.force.x,
-        carPhysicsBody.force.y,
-        carPhysicsBody.force.z,
-      );
-    }
-    // else {
-    //   // If neither A nor D is pressed, gradually return to normal rotation
-    //   if (lateralRotation > 0) {
-    //     lateralRotation -= rotationSpeed;
-    //   } else if (lateralRotation < 0) {
-    //     lateralRotation += rotationSpeed;
-    //   }
-    // }
-
-    // carPhysicsBody.quaternion.setFromEuler(0, Math.PI + lateralRotation, 0);
-
-    carPhysicsBody.quaternion.setFromEuler(0, lateralRotation, 0);
+    carPhysicsWorld.physicsWorldObjects.carPhysicsBody.quaternion.setFromEuler(
+      0,
+      lateralRotation,
+      0,
+    );
 
     //actions to do when models loads
-    if (carObject) {
+    if (carVisualWorld.visual3DObjects.car3DObject) {
+      //handling key events and physics
+      if (keyState["w"]) {
+        // carPhysicsBody.velocity.z += 0.5;
+        carPhysicsWorld.physicsWorldObjects.carPhysicsBody.applyLocalForce(
+          new CANNON.Vec3(0, 0, 30),
+          new CANNON.Vec3(0, 0, 0),
+        );
+
+        console.log(
+          carPhysicsWorld.physicsWorldObjects.carPhysicsBody.force.x,
+          carPhysicsWorld.physicsWorldObjects.carPhysicsBody.force.y,
+          carPhysicsWorld.physicsWorldObjects.carPhysicsBody.force.z,
+        );
+      }
+      if (keyState["s"]) {
+        carPhysicsWorld.physicsWorldObjects.carPhysicsBody.applyLocalForce(
+          new CANNON.Vec3(0, 0, -10),
+          new CANNON.Vec3(0, 0, 0),
+        );
+        console.log(
+          carPhysicsWorld.physicsWorldObjects.carPhysicsBody.force.x,
+          carPhysicsWorld.physicsWorldObjects.carPhysicsBody.force.y,
+          carPhysicsWorld.physicsWorldObjects.carPhysicsBody.force.z,
+        );
+      }
+      if (keyState["a"]) {
+        // if (lateralRotation < maxLateralRotation) {
+
+        // }
+        lateralRotation += rotationSpeed;
+        // carPhysicsBody.applyLocalForce(
+        //   new CANNON.Vec3(0, 0, 7),
+        //   new CANNON.Vec3(0, 0, 0),
+        // );
+        // console.log(carPhysicsBody.force.x, carPhysicsBody.force.y, carPhysicsBody.force.z);
+      } else if (keyState["d"]) {
+        // if (lateralRotation > -maxLateralRotation) {
+
+        // }
+        lateralRotation -= rotationSpeed;
+        // carPhysicsBody.applyLocalForce(
+        //   new CANNON.Vec3(0, 0, 7),
+        //   new CANNON.Vec3(0, 0, 0),
+        // );
+        // console.log(carPhysicsBody.force.x, carPhysicsBody.force.y, carPhysicsBody.force.z);
+      }
+      // else {
+      //   // If neither A nor D is pressed, gradually return to normal rotation
+      //   if (lateralRotation > 0) {
+      //     lateralRotation -= rotationSpeed;
+      //   } else if (lateralRotation < 0) {
+      //     lateralRotation += rotationSpeed;
+      //   }
+      // }
+
       // Calculate and set the current color based on a smooth transition
       // const hueNormalized = hue / maxHue;
       // const color = new THREE.Color().setHSL(hueNormalized, 1, 0.5);
@@ -311,10 +137,14 @@ function animate() {
       //   new CANNON.Vec3(0, 0, 0),
       // );
       //calculate positions
-      carObject.position.copy(carPhysicsBody.position);
-      carObject.quaternion.copy(carPhysicsBody.quaternion);
+      carVisualWorld.visual3DObjects.car3DObject.position.copy(
+        carPhysicsWorld.physicsWorldObjects.carPhysicsBody.position,
+      );
+      carVisualWorld.visual3DObjects.car3DObject.quaternion.copy(
+        carPhysicsWorld.physicsWorldObjects.carPhysicsBody.quaternion,
+      );
       // carObject.scale.copy(carPhysicsBody.scale);
-      if (camera) {
+      if (carVisualWorld.camera) {
         // // //camera movements
         // camera.position.x = carObject.position.x + 2;
         // camera.position.y = carObject.position.y + 2;
@@ -339,5 +169,3 @@ if (WebGL.isWebGLAvailable()) {
   const warning = WebGL.getWebGLErrorMessage();
   document.getElementById("container").appendChild(warning);
 }
-
-init();
